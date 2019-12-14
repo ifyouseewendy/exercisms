@@ -11,24 +11,16 @@ impl<'a> HighScores<'a> {
     }
 
     pub fn latest(&self) -> Option<u32> {
-        self.0.last().map(|v| *v)
+        self.0.last().copied()
     }
 
     pub fn personal_best(&self) -> Option<u32> {
-        let mut v = self.0.to_owned();
-        v.sort();
-        v.last().map(|v| *v)
+        self.0.iter().max().copied()
     }
 
     pub fn personal_top_three(&self) -> Vec<u32> {
-        let mut v = self.0.to_owned();
-        v.sort();
-
-        let mut ret = vec![];
-        while let Some(e) = v.pop() {
-            ret.push(e);
-            if ret.len() == 3 { break }
-        }
-        ret
+        let mut v = Vec::from(self.0);
+        v.sort_unstable();
+        v.into_iter().rev().take(3).collect()
     }
 }
