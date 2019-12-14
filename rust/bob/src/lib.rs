@@ -1,20 +1,13 @@
 pub fn reply(message: &str) -> &str {
-    if message.trim().is_empty() {
-        return "Fine. Be that way!";
+    match message.trim() {
+        m if m.is_empty() => "Fine. Be that way!",
+        m if m.ends_with('?') && is_yelling(m) => "Calm down, I know what I'm doing!",
+        m if m.ends_with('?') => "Sure.",
+        m if is_yelling(m) => "Whoa, chill out!",
+        _ => "Whatever.",
     }
+}
 
-    let is_question = message.trim().ends_with('?');
-
-    let m: String = message.chars().filter(char::is_ascii_alphabetic).collect();
-    let all_uppercase = !m.is_empty() && m.chars().all(|c| char::is_ascii_uppercase(&c));
-
-    if is_question && all_uppercase {
-        "Calm down, I know what I'm doing!"
-    } else if is_question {
-        "Sure."
-    } else if all_uppercase {
-        "Whoa, chill out!"
-    } else {
-        "Whatever."
-    }
+fn is_yelling(m: &str) -> bool {
+    m.chars().all(|c| char::is_ascii_uppercase(&c))
 }
