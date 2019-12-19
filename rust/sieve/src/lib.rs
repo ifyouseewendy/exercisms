@@ -1,19 +1,19 @@
-use std::collections::HashMap;
+use std::collections::HashSet;
 
 pub fn primes_up_to(upper_bound: u64) -> Vec<u64> {
     if upper_bound <= 1 { return vec![]; }
 
-    let mut map = HashMap::new();
+    let mut set = HashSet::new();
 
     for i in 2..=upper_bound {
-        if map.get(&i).is_some() { continue; }
+        if set.contains(&i) { continue; }
 
         let mut num = i + i;
         while num <= upper_bound {
-            map.entry(num).or_insert(1);
+            set.insert(num);
             num += i;
         }
     }
 
-    (2..=upper_bound).filter(|i| map.get(i).is_none()).collect()
+    (2..=upper_bound).filter(|i| set.get(i).is_none()).collect()
 }
