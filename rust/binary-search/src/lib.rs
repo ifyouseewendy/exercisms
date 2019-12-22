@@ -1,4 +1,5 @@
-pub fn find(array: &[i32], key: i32) -> Option<usize> {
+pub fn find<T: AsRef<[E]>, E: Ord>(array: T, key: E) -> Option<usize> {
+    let array = array.as_ref();
     if array.is_empty() { return None }
 
     let mut low = 0;
