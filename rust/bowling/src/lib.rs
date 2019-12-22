@@ -8,29 +8,60 @@ pub enum Error {
 enum State {
     Init,
     Pending,
+    Bonus,
     Done,
 }
 
-pub struct BowlingGame {
-    scores: [(u16, u16); 10],
-    frame: usize,
-    state: State,
-    temp: u16,
-    temp2: u16,
-    bonus: u16,
+#[derive(Debug, PartialEq)]
+enum FrameResult {
+    Strike,
+    Spare,
+    Open,
 }
 
-impl BowlingGame {
-    pub fn new() -> Self {
+#[derive(Debug, PartialEq)]
+struct Frame {
+    result: FrameResult,
+    first: u16,
+    second: u16,
+}
+
+impl Frame {
+    pub fn from(first: u16, second: u16) -> Result<Self, Error> {
+        if first + second > 10 { return Err(Error::NotEnoughPinsLeft); }
+
+        let result = if first == 10 {
+            FrameResult::Strike
+        } else if first + second == 10 {
+            FrameResult::Spare
+        } else {
+            FrameResult::Open
+        };
+
+        Ok(Self { first, second, result })
+    }
+    pub fn sum(&self) -> u16 {
+        self.first + self.second
+    }
+}
+
+pub struct BowlingGame {
+    scores: Vec<Frame>,
+    state: State,
+    last_throw: u16,
+}
+
+impl Default for BowlingGame {
+    fn default() -> Self {
         Self {
-            scores: [(0, 0); 10],
-            frame: 0,
+            scores: Vec::with_capacity(12),
             state: State::Init,
-            temp: 0,
-            temp2: 99,
-            bonus: 0,
+            last_throw: 0,
         }
     }
+}
+impl BowlingGame {
+    pub fn new() -> Self { Default::default() }
 
     pub fn roll(&mut self, pins: u16) -> Result<(), Error> {
         if pins > 10 { return Err(Error::NotEnoughPinsLeft) }
@@ -38,45 +69,45 @@ impl BowlingGame {
         match self.state {
             State::Init => {
                 if pins == 10 {
-                    if self.frame == 9 {
-                        self.temp = pins;
-                        self.state = State::Pending;
-                    } else {
-                        self.scores[self.frame] = (10, 0);
-                        self.frame += 1;
-                    }
-                } else {
-                    self.temp = pins;
-                    self.state = State::Pending;
+                    self.scores.push(Frame::from(10, 0)?);
+                    if self.scores.len() < 10 { return Ok(()); }
                 }
+
+                self.last_throw = pins;
+                self.state = State::Pending
             },
             State::Pending => {
-                if self.frame == 9 {
-                    if self.temp2 == 99 {
-                        if self.temp == 10 || self.temp + pins == 10 {
-                            self.temp2 = pins;
-                        } else {
-                            self.scores[self.frame] = (self.temp, pins);
-                            self.state = State::Done;
-                        }
-                    } else {
-                        if self.temp == 10 && self.temp2 != 10 && self.temp2 + pins > 10 {
-                            return Err(Error::NotEnoughPinsLeft);
-                        }
+                if self.scores.len() < 9 {
+                    self.scores.push(Frame::from(self.last_throw, pins)?);
+                    self.state = State::Init;
+                } else if self.last_throw == 10 {
+                    if pins == 10 { self.scores.push(Frame::from(10, 0)?); }
+                    self.last_throw = pins;
+                    self.state = State::Bonus;
+                } else {
+                    self.scores.push(Frame::from(self.last_throw, pins)?);
 
-                        self.scores[self.frame] = (self.temp, self.temp2);
-                        self.bonus = pins;
+                    if self.last_throw + pins == 10 {
+                        self.last_throw = 0;
+                        self.state = State::Bonus;
+                    } else {
                         self.state = State::Done;
                     }
-                } else {
-                    if self.temp + pins > 10 { return Err(Error::NotEnoughPinsLeft) }
-
-                    self.scores[self.frame] = (self.temp, pins);
-                    self.frame += 1;
-                    self.state = State::Init;
                 }
             },
+            State::Bonus => {
+                if self.last_throw == 10 {
+                    self.scores.push(Frame::from(pins, 0)?);
+                } else {
+                    self.scores.push(Frame::from(pins, self.last_throw)?);
+                }
+                self.state = State::Done;
+            },
             State::Done => return Err(Error::GameComplete)
+        }
+
+        if self.state == State::Done {
+            while self.scores.len() < 12 { self.scores.push(Frame::from(0, 0)?); }
         }
 
         Ok(())
@@ -85,34 +116,26 @@ impl BowlingGame {
     pub fn score(&self) -> Option<u16> {
         if self.state != State::Done { return None }
 
-        let mut total = 0;
-        self.scores.windows(3).for_each(|w| {
-            if w[0] == (10, 0) { //strike
-                if w[1] == (10, 0) { //strike again
-                    total += 10 + 10 + w[2].0;
-                } else {
-                    total += 10 + w[1].0 + w[1].1;
-                }
-            } else if w[0].0 + w[0].1 == 10 {
-                total += 10 + w[1].0;
-            } else {
-                total += w[0].0 + w[0].1;
+        Some((0..10).fold(0, |total, i| {
+            let current = &self.scores[i];
+            let next    = &self.scores[i+1];
+            let bonus   = &self.scores[i+2];
+
+            match current.result {
+                FrameResult::Strike => {
+                    if next.result == FrameResult::Strike {
+                        total + current.sum() + next.sum() + bonus.first
+                    } else {
+                        total + current.sum() + next.sum()
+                    }
+                },
+                FrameResult::Spare => {
+                    total + current.sum() + next.first
+                },
+                FrameResult::Open => {
+                    total + current.sum()
+                },
             }
-        });
-
-        println!("{:?}", self.scores);
-        let a = self.scores[8];
-
-        if a == (10, 0) {
-            total += 10 + self.scores[9].0 + self.scores[9].1;
-        } else if a.0 + a.1 == 10 {
-            total += 10 + self.scores[9].0;
-        } else {
-            total += a.0 + a.1;
-        }
-
-        total += self.scores[9].0 + self.scores[9].1 + self.bonus;
-
-        Some(total)
+        }))
     }
 }
