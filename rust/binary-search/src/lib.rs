@@ -1,3 +1,5 @@
+use std::cmp::Ordering::{Less, Equal, Greater};
+
 pub fn find<T: AsRef<[E]>, E: Ord>(array: T, key: E) -> Option<usize> {
     let array = array.as_ref();
     if array.is_empty() { return None }
@@ -8,9 +10,11 @@ pub fn find<T: AsRef<[E]>, E: Ord>(array: T, key: E) -> Option<usize> {
     while low < high {
         let mid = low + (high - low) / 2;
 
-        if array[mid] == key { return Some(mid) }
-        else if array[mid] > key { high = mid }
-        else { low = mid + 1 }
+        match array[mid].cmp(&key) {
+            Equal => return Some(mid),
+            Greater => high = mid,
+            Less => low = mid + 1,
+        }
     }
 
     if array[low] == key { return Some(low) }
