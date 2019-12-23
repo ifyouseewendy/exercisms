@@ -1,5 +1,6 @@
+use std::fmt;
 use std::cmp::Ordering;
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 #[derive(Clone, Debug, Eq)]
 struct TeamRecord {
@@ -44,6 +45,17 @@ impl Default for TeamRecord {
         }
     }
 }
+
+impl fmt::Display for TeamRecord {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{:<30} | {:>2} | {:>2} | {:>2} | {:>2} | {:>2}",
+            self.name, self.mp, self.w, self.d, self.l, self.p,
+        )
+    }
+}
+
 impl TeamRecord {
     pub fn new(name: &str) -> Self {
         Self {
@@ -51,6 +63,7 @@ impl TeamRecord {
             ..Default::default()
         }
     }
+
     pub fn win(&mut self) {
         self.mp += 1;
         self.w += 1;
@@ -68,41 +81,44 @@ impl TeamRecord {
 }
 
 pub fn tally(match_results: &str) -> String {
-    let mut table = BTreeMap::new();
+    let mut map = HashMap::new();
 
     match_results.lines().for_each(|line| {
         let parts: Vec<&str> = line.split(';').collect();
+        let home   = parts[0];
+        let away   = parts[1];
+        let result = parts[2];
 
-        table.entry(parts[0]).or_insert_with(|| TeamRecord::new(parts[0]));
-        table.entry(parts[1]).or_insert_with(|| TeamRecord::new(parts[1]));
+        map.entry(home).or_insert_with(|| TeamRecord::new(home));
+        map.entry(away).or_insert_with(|| TeamRecord::new(away));
 
-        match parts[2] {
+        match result {
             "win" => {
-                table.entry(parts[0]).and_modify(|tr| tr.win());
-                table.entry(parts[1]).and_modify(|tr| tr.loss());
+                map.entry(home).and_modify(|tr| tr.win());
+                map.entry(away).and_modify(|tr| tr.loss());
             },
             "draw" => {
-                table.entry(parts[0]).and_modify(|tr| tr.draw());
-                table.entry(parts[1]).and_modify(|tr| tr.draw());
+                map.entry(home).and_modify(|tr| tr.draw());
+                map.entry(away).and_modify(|tr| tr.draw());
             },
             "loss" => {
-                table.entry(parts[0]).and_modify(|tr| tr.loss());
-                table.entry(parts[1]).and_modify(|tr| tr.win());
+                map.entry(home).and_modify(|tr| tr.loss());
+                map.entry(away).and_modify(|tr| tr.win());
             },
             _ => (),
         }
     });
 
-    let mut records: Vec<TeamRecord> = table.values().cloned().collect();
+
+    let mut records: Vec<TeamRecord> = map.values().cloned().collect();
     records.sort();
-    println!("{records:#?}", records=records);
 
-    let mut ret = vec![];
-    ret.push(format!("{:<30} | {:>2} | {:>2} | {:>2} | {:>2} | {:>2}", "Team", "MP", "W", "D", "L", "P"));
+    let header = format!("{:<30} | {:>2} | {:>2} | {:>2} | {:>2} | {:>2}", "Team", "MP", "W", "D", "L", "P");
+    let mut table = vec![header];
 
-    records.iter().rev().for_each(|tr|
-        ret.push(format!("{:<30} | {:>2} | {:>2} | {:>2} | {:>2} | {:>2}", tr.name, tr.mp, tr.w, tr.d, tr.l, tr.p))
+    table.extend(
+        records.iter().rev().map(|tr| tr.to_string()).collect::<Vec<String>>()
     );
 
-    ret.join("\n")
+    table.join("\n")
 }
