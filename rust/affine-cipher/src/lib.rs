@@ -10,21 +10,23 @@ const M: i32 = 26;
 /// Encodes the plaintext using the affine cipher with key (`a`, `b`). Note that, rather than
 /// returning a return code, the more common convention in Rust is to return a `Result`.
 pub fn encode(plaintext: &str, a: i32, b: i32) -> Result<String, AffineCipherError> {
-    if [2, 13, 26].iter().any(|i| a % i == 0) {
+    if [2, 13].iter().any(|i| a % i == 0) {
         return Err(AffineCipherError::NotCoprime(a));
     }
 
     Ok(plaintext
         .chars()
-        .filter(|&c| c.is_ascii_alphanumeric())
-        .map(|c| c.to_ascii_lowercase() as u8)
-        .map(|byte| match byte {
-            b'a'..=b'z' => b'a' + ((a * (byte - b'a') as i32 + b) % M) as u8,
-            _ => byte,
+        .filter_map(|c| match c {
+            c if c.is_ascii_alphabetic() => {
+                let x = (c.to_ascii_lowercase() as u8 - b'a') as i32;
+                Some(b'a' + ((a * x + b) % M) as u8)
+            }
+            c if c.is_numeric() => Some(c as u8),
+            _ => None,
         })
         .collect::<Vec<u8>>()
         .chunks(5)
-        .map(|c| String::from_utf8(c.to_owned()).unwrap())
+        .map(|chunk| String::from_utf8(chunk.to_owned()).unwrap())
         .collect::<Vec<String>>()
         .join(" "))
 }
@@ -33,26 +35,24 @@ pub fn encode(plaintext: &str, a: i32, b: i32) -> Result<String, AffineCipherErr
 /// returning a return code, the more common convention in Rust is to return a `Result`.
 /// D(y) = a^-1(y - b) mod m
 pub fn decode(ciphertext: &str, a: i32, b: i32) -> Result<String, AffineCipherError> {
-    if [2, 13, 26].iter().any(|i| a % i == 0) {
+    if [2, 13].iter().any(|i| a % i == 0) {
         return Err(AffineCipherError::NotCoprime(a));
     }
 
-    let mmi = find_mmi(a);
+    let mmi = (1..).find(|&i| i * a % M as i32 == 1).unwrap();
 
     Ok(String::from_utf8(
         ciphertext
             .chars()
-            .filter(|&c| c.is_ascii_alphanumeric())
-            .map(|c| c.to_ascii_lowercase() as u8)
-            .map(|byte| match byte {
-                b'a'..=b'z' => b'a' + ((mmi * ((byte - b'a') as i32 - b)).rem_euclid(M)) as u8,
-                _ => byte,
+            .filter_map(|c| match c {
+                c if c.is_ascii_alphabetic() => {
+                    let y = (c.to_ascii_lowercase() as u8 - b'a') as i32;
+                    Some(b'a' + ((mmi * (y - b)).rem_euclid(M)) as u8)
+                }
+                c if c.is_numeric() => Some(c as u8),
+                _ => None,
             })
             .collect::<Vec<u8>>(),
     )
     .unwrap())
-}
-
-fn find_mmi(a: i32) -> i32 {
-    (1..).find(|&i| i * a % M as i32 == 1).unwrap()
 }
