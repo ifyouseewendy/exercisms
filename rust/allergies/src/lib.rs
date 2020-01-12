@@ -2,17 +2,17 @@ pub struct Allergies(u32);
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Allergen {
-    Eggs,
-    Peanuts,
-    Shellfish,
-    Strawberries,
-    Tomatoes,
-    Chocolate,
-    Pollen,
-    Cats,
+    Eggs = 1,
+    Peanuts = 2,
+    Shellfish = 4,
+    Strawberries = 8,
+    Tomatoes = 16,
+    Chocolate = 32,
+    Pollen = 64,
+    Cats = 128,
 }
 
-const DATA: [Allergen; 8] = [
+const ALLERGENS: [Allergen; 8] = [
     Allergen::Eggs,
     Allergen::Peanuts,
     Allergen::Shellfish,
@@ -29,22 +29,14 @@ impl Allergies {
     }
 
     pub fn is_allergic_to(&self, allergen: &Allergen) -> bool {
-        self.allergies().contains(allergen)
+        self.0 & (*allergen as u32) != 0
     }
 
     pub fn allergies(&self) -> Vec<Allergen> {
-        let mut ret = vec![];
-        let mut i = 0;
-        let mut sum = self.0;
-
-        while sum > 0 {
-            if sum % 2 == 1 {
-                ret.push(DATA[i]);
-            }
-            sum /= 2;
-            i += 1;
-        }
-
-        ret
+        ALLERGENS
+            .iter()
+            .filter(|&a| self.is_allergic_to(a))
+            .copied()
+            .collect()
     }
 }
