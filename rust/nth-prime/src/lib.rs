@@ -1,16 +1,5 @@
 pub fn nth(n: u32) -> u32 {
-    let mut count = 0;
-
-    for i in 2.. {
-        if is_prime(i) {
-            if count == n {
-                return i;
-            }
-            count += 1;
-        }
-    }
-
-    return 0;
+    (2..).filter(|&x| is_prime(x)).nth(n as usize).unwrap()
 }
 
 fn is_prime(n: u32) -> bool {
